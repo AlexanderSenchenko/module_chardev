@@ -19,7 +19,8 @@ static int major;
 static int dev_open = 0;
 
 static char msg[BUF_LEN];
-static char *msg_Ptr;
+static char *msg_ptr;
+static int size_msg;
 
 static struct file_operations fops = {
   .read = device_read,
@@ -63,8 +64,8 @@ static int device_open(struct inode *inode, struct file *file)
     return -EBUSY;
   
   dev_open++;
-  sprintf(msg, "I already told you %d times Hello world!\n", counter++);
-  msg_Ptr = msg;
+  size_msg = sprintf(msg, "I already told you %d times Hello world!\n", counter++);
+  msg_ptr = msg;
 
   try_module_get(THIS_MODULE);
 
@@ -80,32 +81,12 @@ static int device_release(struct inode *inode, struct file *file)
   return 0;
 }
 
-#if 0
-static ssize_t device_read(struct file *filp, char *buffer,
-                           size_t length, loff_t * offset)
-{
-  int bytes_read = 0;
-
-  if (*msg_Ptr == 0)
-    return 0;
-
-  while (length && *msg_Ptr) {
-    put_user(*(msg_Ptr++), buffer++);
-
-    length--;
-    bytes_read++;
-  }
-
-  return bytes_read;
-}
-#else
 static ssize_t device_read(struct file *filp,
                            char __user *buf, size_t count,
                            loff_t *ppos)
 {
-  return simple_read_from_buffer(buf, count, ppos, msg_Ptr, BUF_LEN);
+  return simple_read_from_buffer(buf, count, ppos, msg_ptr, size_msg);
 }
-#endif
 
 static ssize_t device_write(struct file *filp, const char *buff,
                             size_t len, loff_t * off)
