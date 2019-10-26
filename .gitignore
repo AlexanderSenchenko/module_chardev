@@ -1,0 +1,10 @@
+test_read
+
+Module.*
+
+*.ko
+*.o
+.*.cmd
+.tmp_versions
+*.mod.*
+*.order
