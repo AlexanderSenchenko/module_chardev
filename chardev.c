@@ -8,10 +8,14 @@ static int device_open(struct inode *, struct file *);
 static int device_release(struct inode *, struct file *);
 static ssize_t device_read(struct file *, char *, size_t, loff_t *);
 static ssize_t device_write(struct file *, const char *, size_t, loff_t *);
+static long device_ioctl(struct file *, unsigned int, unsigned long);
 
 #define SUCCESS 0
 #define DEVICE_NAME "chardev"
 #define BUF_LEN 80
+
+#define CHARDEV_READ  100
+#define CHARDEV_WRITE 101
 
 static int major;
 static int dev_open = 0;
@@ -23,11 +27,18 @@ static int size_msg;
 static char write_msg[BUF_LEN];
 
 static struct file_operations fops = {
-  .read = device_read,
-  .write = device_write,
-  .open = device_open,
-  .release = device_release
+  .read           = device_read,
+  .write          = device_write,
+  .unlocked_ioctl = device_ioctl,
+  .open           = device_open,
+  .release        = device_release
 };
+
+// static struct chardev_ioctl_arg
+// {
+//   ssize_t len;
+//   char buf[BUF_LEN];
+// };
 
 int __init chardev_init(void)
 {
@@ -62,7 +73,7 @@ static int device_open(struct inode *inode, struct file *file)
     return -EBUSY;
   
   dev_open++;
-  size_msg = sprintf(msg, "I already told you %d times Hello world!\n", counter++);
+  size_msg = sprintf(msg, "I already told you %d times Hello world!\n%c", counter++, '\0');
   msg_ptr = msg;
 
   try_module_get(THIS_MODULE);
@@ -92,7 +103,7 @@ static ssize_t device_write(struct file *filp,
 {
   ssize_t ret;
 
-  ret = simple_write_to_buffer(write_msg, 4, ppos, buf, len);
+  ret = simple_write_to_buffer(write_msg, BUF_LEN, ppos, buf, len);
   if (ret < 0)
     return ret;
 
@@ -102,6 +113,26 @@ static ssize_t device_write(struct file *filp,
   printk(KERN_ALERT "msg: %s\n", write_msg);
 
   return ret;
+}
+static long device_ioctl(struct file *filp, unsigned int cmd,
+                         unsigned long arg)
+{
+  char __user *argp = (char __user *)arg;
+  loff_t pos = 0;
+
+  switch (cmd)
+  {
+  case CHARDEV_READ:
+    return device_read(filp, argp, BUF_LEN, &pos);
+    break;
+  case CHARDEV_WRITE:
+    return device_write(filp, argp, BUF_LEN, &pos);
+    break;
+  default:
+    break;
+  }
+
+  return SUCCESS;
 }
 
 module_init(chardev_init);
