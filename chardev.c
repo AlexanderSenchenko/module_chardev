@@ -4,8 +4,6 @@
 #include <linux/uaccess.h>
 // #include <asm/uaccess.h>
 
-// int init_module(void);
-// void cleanup_mudule(void);
 static int device_open(struct inode *, struct file *);
 static int device_release(struct inode *, struct file *);
 static ssize_t device_read(struct file *, char *, size_t, loff_t *);
@@ -21,6 +19,8 @@ static int dev_open = 0;
 static char msg[BUF_LEN];
 static char *msg_ptr;
 static int size_msg;
+
+static char write_msg[BUF_LEN];
 
 static struct file_operations fops = {
   .read = device_read,
@@ -51,9 +51,7 @@ int __init chardev_init(void)
 void __exit chardev_exit(void)
 {
   unregister_chrdev(major, DEVICE_NAME);
-  // int ret = unregister_chrdev(major, DEVICE_NAME);
-  // if (ret < 0)
-  //   printk("Error in unregister_chrdev: %d\n", ret);
+
   printk(KERN_ALERT "Goodbye world.\n");
 }
 
@@ -88,11 +86,22 @@ static ssize_t device_read(struct file *filp,
   return simple_read_from_buffer(buf, count, ppos, msg_ptr, size_msg);
 }
 
-static ssize_t device_write(struct file *filp, const char *buff,
-                            size_t len, loff_t * off)
+static ssize_t device_write(struct file *filp,
+                            const char __user *buf, size_t len,
+                            loff_t *ppos)
 {
-  printk("<1>Sorry, this operation isn't supported.\n");
-  return -EINVAL;
+  ssize_t ret;
+
+  ret = simple_write_to_buffer(write_msg, 4, ppos, buf, len);
+  if (ret < 0)
+    return ret;
+
+  if (ret < BUF_LEN)
+    write_msg[ret] = '\0';
+
+  printk(KERN_ALERT "msg: %s\n", write_msg);
+
+  return ret;
 }
 
 module_init(chardev_init);
